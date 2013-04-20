@@ -4,18 +4,36 @@ def gen_nodeName()
 {
 	for (i in 1..params.noofserver )
 	{
-		NodeNameList.add[i] = '$param.datacenter-sigiri'i;
+		NodeNameList.add[i] = ${param.datacenter}-sigiri$i;
+		log.info ("$NodeNameList.add[i]")
+		tempNodeName= NodeNameList.add[i]
 		
+		if(isServerAvail(tempNodeName))
+		{
+			//Now server is not availaible. Starting load balancing mechanism
+			log.info("Server has gone down, Now starting fault tolerance")
+			
+			doRetry(tempNodeName,${params.servicename})
+			
+		}	
 	}
 }
 
 
+def loadbalance()
+{
+	//This the main function.
+	gen_nodeName() //1. we generate servers list
+	
+	
+}
 
-def boolean isServiceup(NodeName)
+
+def boolean ServRunning(NodeName)
 {
 	
 	shell.waitFor(timeout: '30s', heartbeat: '60s'){ duration ->
-			def output= shell.exec("ssh ${NodeName} sh /cacheDir/glu_scripts/load_service_monitor.sh ${params.service}")
+			def output= shell.exec(" sh /cacheDir/glu_scripts/load_service_monitor.sh ${NodeName} ${params.service}")
 			log.info "${output}"
 			
 				if(output == 'null')
@@ -29,7 +47,7 @@ def boolean isServiceup(NodeName)
 
 def boolean isServiceDown( NodeName)
 {
-	isServiceup( NodeName) == null
+	ServRunning( NodeName) == null
 }
 	
 def isServerup()
@@ -50,10 +68,7 @@ def isServerup()
 		DownServList.add(${NodeName}) // add server to a down server list
 		log.info ("Server ${NodeName} has been flagged as Down Server ")
 		log.info ("Shifting running services to another node.")
-		mvServiceNextNode(NodeName)
-		
-		
-		
+				
 		}
 				
 			
@@ -67,13 +82,6 @@ def boolean isServerAvail(NodeName)
 	isServerup(NodeName) == 'null'
 }
 
-def mvServiceNextNode( NodeName )
-{
-	//Check which services were running on the downed server.
-	
-	//1. Calculate Total no. of Running services.
-		
-}
 
 def checkPortAvail(NodeName, ServiceName)
 {
@@ -81,11 +89,12 @@ def checkPortAvail(NodeName, ServiceName)
 	def portAvail=0
 		for (int i =1 ; i < 4; i++ )
 		{
-		servState= shell.exec("/home/nextag/glu/console-cli/bin/./console-cli.py -f Services -u admin -x admin  -b  -l -s "agent='${NodeName}.pv.sv.nextag.com';mountPoint='/${ServiceName}/p${portRange}${i}'" status|grep "servState"|awk -F '"' '{print $4}'")
-		entrState= shell.exec("/home/nextag/glu/console-cli/bin/./console-cli.py -f Services -u admin -x admin  -b  -l -s "agent='${NodeName}.pv.sv.nextag.com';mountPoint='/${ServiceName}/p${portRange}${i}'" status|grep "entryState"|awk -F '"' '{print $4}'")
+		servState= shell.exec("sh /cacheDir/glu_scripts/getentryState.sh ${NodeName} ${ServiceName} ${portRange} ${i}")
+		entrState= shell.exec("sh /cacheDir/glu_scripts/getservState.sh ${NodeName} ${ServiceName} ${portRange} ${i}")
 			if(entryState=='running' && servState=='Started')
 			{
 				//Do nothing
+				portAvail=0
 			}
 			else
 			portAvail=${portRange}${i}
@@ -105,7 +114,7 @@ def boolean isPortAvail(NodeName, ServiceName)
 	checkPortAvail(NodeName, ServiceName) == 'null'
 }
 
-def doRetry( NodeName , ServiceName , port)
+def doRetry( NodeName , ServiceName)
 {
 		
 	//Check for Down service.
@@ -113,6 +122,7 @@ def doRetry( NodeName , ServiceName , port)
 	if ( currentRunningServ() < ${params.reqServiceNo} )
 		{
 			shiftServ(ServiceName, NodeName)
+			log.info ("Shifting service to stale node")
 		}	
 	else
 	//Do nothing
@@ -160,4 +170,20 @@ shiftstaleNode(staleNode)
 	}
 }
 
+
+def startService (NodeName)
+{
+	portToRun= checkPortAvail(NodeName, ServiceName)
+	
+	// Got port now starting the service. 
+	
+	//1. we create a plan using curl and REST api. 
+	
+	plans=shell.exec("sh /cacheDir/glu_scripts/genPlan.sh ${NodeName} ${ServiceName} ${portToRun}")
+	
+		//2. Execute the plan 
+	shell.exec(" sh /cacheDir/glu_scripts/execPlan.sh ${plans} ")
+		//3. Plan has been executed now. Service should be started now.
+		log.info ("${ServiceName} Service has been started on ${NodeName} using ${portToRun} port")
+}
 
