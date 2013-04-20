@@ -1,3 +1,14 @@
+class loadbalancing {
+	
+
+def start = {
+	 timers.schedule(timer: loadbalance, repeatFrequency: "15s")
+}
+	
+	def stop = {
+		timers.cancel(timer: loadbalance)
+	}
+
 def NodeNameList = []
 
 def gen_nodeName()
@@ -20,8 +31,7 @@ def gen_nodeName()
 }
 
 
-def loadbalance()
-{
+def loadbalance = {
 	//This the main function.
 	gen_nodeName() //1. we generate servers list
 	
@@ -57,7 +67,7 @@ def isServerup()
 	NodeName='';
 	for (i in 1..params.noofserver  ) // checking wheather serve/agent is down 
 	{
-		NodeName='$param.datacenter-sigiri'i;
+		NodeName=${param.datacenter-sigiri}${i};
 		def resp_ssh = shell.exec("ssh ${NodeName} ps -elf|grep -v grep|grep glu")
 		if (resp_ssh > 0)
 		{
@@ -187,3 +197,4 @@ def startService (NodeName)
 		log.info ("${ServiceName} Service has been started on ${NodeName} using ${portToRun} port")
 }
 
+}
