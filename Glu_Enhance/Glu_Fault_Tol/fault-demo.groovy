@@ -1,7 +1,7 @@
 class loadbalancing {
 	
 	
-	def start = {
+def start = {
 			 timers.schedule(timer: loadbalance, repeatFrequency: "15s")
 	}
 	
@@ -9,9 +9,9 @@ class loadbalancing {
 					timers.cancel(timer: loadbalance)
 			}
 	
-	def NodeNameList = []
+def NodeNameList = []
 	
-	def gen_nodeName = {
+def gen_nodeName = {
 	
 			for (i in 1..params.noofserver )
 			{
@@ -25,42 +25,32 @@ class loadbalancing {
 							log.info("Server has gone down, Now starting fault tolerance")
 	
 							doRetry(tempNodeName,${params.servicename})
-	
 					}
 			}
 	}
 	
-	
-	def loadbalance = {
+def loadbalance = {
 			//This the main function.
 			gen_nodeName() //1. we generate servers list
-	
-	
 	}
 	
-	
-	def boolean ServRunning = { NodeName ->
-	
-	
+def boolean ServRunning = { NodeName ->
 			shell.waitFor(timeout: '30s', heartbeat: '60s'){ duration ->
 							def output= shell.exec(" sh /cacheDir/glu_scripts/load_service_monitor.sh ${NodeName} ${params.service}")
 							log.info "${output}"
-	
 									if(output == 'null')
 											{
 													log.warn ("No ${params.service} is running on this server.")
 													return null
 											}
-	
-	
 	}
-	
-	def boolean isServiceDown( NodeName)
+			
+def boolean isServiceDown( NodeName)
 	{
 			ServRunning( NodeName) == null
 	}
 	
-	def isServerup = {
+def isServerup = {
 	
 			//check if server is in stale list for this service.
 			def DownServList = []
@@ -80,21 +70,15 @@ class loadbalancing {
 					log.info ("Shifting running services to another node.")
 	
 					}
-	
-	
-	
 			}
 	}
 	
-	
-	def boolean isServerAvail(NodeName)
+def boolean isServerAvail(NodeName)
 	{
 			isServerup(NodeName) == 'null'
 	}
 	
-	
-	def checkPortAvail = { NodeName, ServiceName ->
-	
+def checkPortAvail = { NodeName, ServiceName ->
 			portRange=${params.portRange}
 			def portAvail=0
 					for (int i =1 ; i < 4; i++ )
@@ -118,15 +102,12 @@ class loadbalancing {
 					return null
 	}
 	
-	
-	def boolean isPortAvail(NodeName, ServiceName)
+def boolean isPortAvail(NodeName, ServiceName)
 	{
 			checkPortAvail(NodeName, ServiceName) == 'null'
 	}
 	
-	def doRetry = { NodeName , ServiceName ->
-	
-	
+def doRetry = { NodeName , ServiceName ->
 			//Check for Down service.
 	
 			if ( currentRunningServ() < ${params.reqServiceNo} )
@@ -139,8 +120,7 @@ class loadbalancing {
 			log.info("Current running services are with in plan so doing nothing")
 	}
 	
-	def shiftServ = { ServiceName , NodeName ->
-	
+def shiftServ = { ServiceName , NodeName ->
 			// This function will shift service
 			//1. Check if stale Node is availaible
 	
@@ -158,10 +138,9 @@ class loadbalancing {
 							log.info ("Shifting Service to stale node")
 							shiftstaleNode(staleNode)
 					}
-	
 	}
 	
-	def shiftstaleNode = { staleNode ->
+def shiftstaleNode = { staleNode ->
 	
 			// This funtion will shift the service to stale node.
 	
@@ -180,8 +159,7 @@ class loadbalancing {
 			}
 	}
 	
-	
-	def startService = { NodeName ->
+def startService = { NodeName ->
 	
 			portToRun= checkPortAvail(NodeName, ServiceName)
 	
@@ -197,4 +175,4 @@ class loadbalancing {
 					log.info ("${ServiceName} Service has been started on ${NodeName} using ${portToRun} port")
 	}
 	
-	}
+}
